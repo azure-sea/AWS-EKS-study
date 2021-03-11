@@ -175,7 +175,16 @@ eksctl get nodegroup --cluster=<clustername>[--name=<nodegroupname>]
 9. 伸缩 nodegroup
 
 ```
-ekscli scale nodegroup --cluster=<clustername> --nodes=<desiredcount> --name=<nodegroupname>
+eksctl scale nodegroup --cluster=<clustername> --nodes=<desiredcount> --name=<nodegroupname>
+```
+
+如果出现下图错误, 则此次伸缩值不在该节点组最小值和最大值中间。
+
+![nodegroup_scale_fail](https://51k8s.oss-cn-shenzhen.aliyuncs.com/oss-cn-shenzhennodegroup_scale_fail.png)
+所以伸缩时应该附带 `--nodes-min` `--nodes-max` 例如
+
+```
+eksctl scale nodegroup --cluster=<clusterName> --nodes=<desiredCount> --name=<nodegroupName> [ --nodes-min=<minSize> ] [ --nodes-max=<maxSize> ]
 ```
 
 10. 删除 nodegroup
@@ -190,6 +199,18 @@ eksctl delete nodegroup --cluster=<clustername> --name=<nodegroupname>
 
 ```
 eksctl drain nodegroup --cluster=<clustername> --name=<nodegroupname>
+```
+
+​    去除节点组的污点, 运行下面命令
+
+```
+eksctl drain nodegroup --cluster=<clusterName> --name=<nodegroupName> --undo
+```
+
+   要忽略驱逐规则，例如PodDisruptionBudget设置，请运行：
+
+```
+eksctl drain nodegroup --cluster=<clusterName> --name=<nodegroupName> --disable-eviction
 ```
 
 12. 升级控制平面
