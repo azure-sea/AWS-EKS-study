@@ -7,8 +7,9 @@ AWS 中 EKS 的学习笔记
 下面是我学习EKS参考的一些文档
 1. [eksctl.io](https://eksctl.io/)  用于在 EKS 上创建集群的简单CLI工具
 2. [kubernetes.io](https://kubernetes.io/docs/home/)  kubernetes官方文档
-3. [AWS EKS文档](https://docs.aws.amazon.com/zh_cn/eks/)   Amazon EKS 的关键概念，并提供了使用 Amazon EKS 各项功能的说明。
+3. [AWS EKS文档](https://docs.aws.amazon.com/zh_cn/eks/)   杰斯Amazon EKS 的关键概念，并提供了使用 Amazon EKS 各项功能的说明。
 4. [EKS最佳实践指南](https://aws.github.io/aws-eks-best-practices/) 提供一套Amazon EKS的最佳实践
+5. [K8s dashboard](https://github.com/kubernetes/dashboard/blob/master/docs/README.md)  k8s 仪表盘文档
 
 后续可能有部分补充。
 
@@ -17,3 +18,4 @@ AWS 中 EKS 的学习笔记
 [Apache License 2.0](https://github.com/azure-sea/AWS-EKS-study/blob/master/LICENSE)
 
 ----
+
