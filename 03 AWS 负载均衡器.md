@@ -88,7 +88,7 @@ eksctl create iamserviceaccount \
 ​          a. 检查当前是否安装了控制器。
 
 ```
-
+kubectl get deployment -n kube-system alb-ingress-controller
 ```
 
 ​    输出（如果已安装）。跳至步骤 5b。
