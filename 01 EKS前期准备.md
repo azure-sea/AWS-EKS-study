@@ -92,8 +92,6 @@ echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
 kubectl version --short --client
 ```
 
-
-
 ## 1.4 安装 jq
 
 ```
@@ -101,19 +99,3 @@ sudo yum install -y jq
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- 
