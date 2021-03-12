@@ -43,7 +43,9 @@ aws iam list-open-id-connect-providers | grep <F281AD9C01B223C09304173CC3105B59>
 
 ​        要创建IAM OIDC提供程序，请参阅[为集群创建IAM OIDC提供程序](https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html)。
 
-### 2. 下载适用于AWS Load Balancer控制器的IAM策略，使它可以代表您对AWS API进行调用。您可以查看[政策文件](https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2_ga/docs/install/iam_policy.json) 在GitHub上。
+### 2. 下载适用于AWS Load Balancer控制器的IAM策略，
+
+使它可以代表您对AWS API进行调用。您可以查看[政策文件](https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2_ga/docs/install/iam_policy.json) 在GitHub上。
 
 ```
 curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.1.3/docs/install/iam_policy.json
@@ -59,7 +61,9 @@ aws iam create-policy \
 
 ​     记下返回的策略ARN。
 
-### 4. 创建一个IAM角色 并使用 eksctl 或AWS管理控制台和kubectl，为在AWS负载均衡器控制器`aws-load-balancer-controller`的`kube-system`名称空间中命名 的Kubernetes服务帐户添加注释
+### 4. 创建一个IAM角色 
+
+并使用 eksctl 或AWS管理控制台和kubectl，为在AWS负载均衡器控制器`aws-load-balancer-controller`的`kube-system`名称空间中命名 的Kubernetes服务帐户添加注释
 
 ```
 eksctl create iamserviceaccount \
@@ -83,7 +87,9 @@ eksctl create iamserviceaccount \
   --approve
 ```
 
-### 5. 如果您当前已安装适用于 Kubernetes 的 AWS ALB 入口控制器，请卸载它。AWS Load Balancer 控制器取代了适用于 Kubernetes 的 AWS ALB 入口控制器的功能。
+### 5. 检测是否安装 AWS ALB 入口控制器
+
+如果您当前已安装适用于 Kubernetes 的 AWS ALB 入口控制器，请卸载它。AWS Load Balancer 控制器取代了适用于 Kubernetes 的 AWS ALB 入口控制器的功能。
 
 ​          a. 检查当前是否安装了控制器。
 
@@ -194,7 +200,9 @@ aws-load-balancer-controller   1/1     1            1           70s
 
 ![ALB安装](https://51k8s.oss-cn-shenzhen.aliyuncs.com/eks/images/ALB安装.png)
 
-### 8. 使用 控制器预配置AWS资源之前，您的集群必须满足特定要求。有关更多信息，请参阅 [上的应用程序负载均衡 Amazon EKS](https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/alb-ingress.html) 和 [上的网络负载均衡 Amazon EKS](https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/load-balancing.html).
+### 8. 使用控制器预配置AWS资源
+
+使用 控制器预配置AWS资源之前，您的集群必须满足特定要求。有关更多信息，请参阅 [上的应用程序负载均衡 Amazon EKS](https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/alb-ingress.html) 和 [上的网络负载均衡 Amazon EKS](https://docs.aws.amazon.com/zh_cn/eks/latest/userguide/load-balancing.html).
 
 
 
@@ -245,3 +253,35 @@ ingress-2048   <none>   *       k8s-game2048-ingress2-0d92478cc7-394946114.ap-so
 kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.1.0/docs/examples/2048/2048_full.yaml
 ```
 
+# 3. AWS LoadBalancer控制器 后续补充
+
+## 3.1 Ingress annotations 介绍
+
+[AWS Ingress annotations](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/) 介绍
+
+可以向kubernetes入口和服务对象添加注释，以自定义它们的行为。
+
+- Annotation 键和值只能是字符串。高级格式应如下编码：:
+  - boolean: 'true'
+  -  integer: '42'
+  - stringList: s1,s2,s3
+  - stringMap: k1=v1,k2=v2
+  - json: 'jsonContent'
+
+- Annotations applied to Service have higher priority over annotations applied to Ingress. `Location `
+
+  column below indicates where that annotation can be applied to.
+
+- Annotations that configures LoadBalancer / Listener behaviors have different merge behavior when IngressGroup feature is been used. `MergeBehavior` column below indicates how such annotation will be merged.
+  - Exclusive: 此类注释仅应在IngressGroup内的单个Ingress上指定，或在IngressGroup内的所有Ingress上指定相同的值。
+  - Merge: 可以在IngressGroup中的所有Ingress上指定此类注释，并将其合并在一起。
+
+
+
+### 3.1.1 指定LoadBalancer是连接互联网
+
+`alb.ingress.kubernetes.io/scheme`指定您的LoadBalancer是否面向互联网
+
+internal:  连接互联网, 此值为默认值。
+
+internet-facing:  内网负载均衡器。
