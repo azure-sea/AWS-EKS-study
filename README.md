@@ -12,6 +12,7 @@ AWS 中 EKS 的学习笔记
 5. [K8s dashboard](https://github.com/kubernetes/dashboard/blob/master/docs/README.md)  k8s 仪表盘文档
 6. [AWS LoadBalancer控制器](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) AWS Load Balancer Controller是一个控制器，可帮助管理Kubernetes集群的Elastic Load Balancer。
 7. [ingress-nginx](https://kubernetes.github.io/ingress-nginx/)  NGINX Ingress控制器
+8. [AWS CLI](https://docs.aws.amazon.com/cli/latest/) AWS Command Line Interface 是一个统一的工具，可以与AWS的所有部分进行交互提供了一致的界面。
 
 后续可能有部分补充。
 
