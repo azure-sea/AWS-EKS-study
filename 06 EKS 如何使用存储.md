@@ -166,3 +166,14 @@ kubectl get storageclass
 ```
 gp2 (default)   kubernetes.io/aws-ebs   12m
 ```
+
+## 1.2 <span id='Amazon EBS CSI 驱动程序'>Amazon EBS CSI 驱动程序</span>
+
+
+
+
+
+
+
+## 1.3 <span id='Amazon EFS CSI 驱动程序'>Amazon EFS CSI 驱动程序</span>
+
