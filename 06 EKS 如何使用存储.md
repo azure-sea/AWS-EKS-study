@@ -775,9 +775,17 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 ### 1.4.1 PV的关键配置参数
 
 1. 存储能力 (Capacity)
+
+   描述存储设备具备的能力，目前仅支持对存储空间的设置（storage=xx），现在已经加入IOPS、吞吐率等指标的设置。
+
 2. 存储卷模式 (Volume Mode)
+
 3. 访问模式 (Access Modes)
+
 4. 存储类别 (Class)
+
 5. 回收策略 (Reclaim Policy)
+
 6. 挂载参数 (Mount Option)
+
 7. 节点亲和性 (Node Affinity)
