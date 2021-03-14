@@ -776,7 +776,18 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 
 1. 存储能力 (Capacity)
 
-   描述存储设备具备的能力，目前仅支持对存储空间的设置（storage=xx），现在已经加入IOPS、吞吐率等指标的设置。
+   描述存储设备具备的能力，容量属性是使用 PV 对象的 `capacity` 属性来设置的，参考 Kubernetes [资源模型（Resource Model）](https://git.k8s.io/community/contributors/design-proposals/scheduling/resources.md) 设计提案，了解 `capacity` 字段可以接受的单位。目前仅支持对存储空间的设置（storage=xx），未来可能会加入IOPS、吞吐率等指标的设置。
+
+   ```json
+   apiVersion: v1
+   kind: PersistentVolume
+   metadata:
+     name: pv0001
+   spec:
+     capacity:
+       storage: 5Gi
+   ...
+   ```
 
 2. 存储卷模式 (Volume Mode)
 
