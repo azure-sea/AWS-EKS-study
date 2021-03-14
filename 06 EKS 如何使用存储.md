@@ -799,6 +799,24 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 
 3. 访问模式 (Access Modes)
 
+   ​        PersistentVolume 卷可以用资源提供者所支持的任何方式挂载到宿主系统上。 如下表所示，提供者（驱动）的能力不同，每个 PV 卷的访问模式都会设置为对应卷所支持的模式值。 例如，NFS 可以支持多个读写客户，但是某个特定的 NFS PV 卷可能在服务器 上以只读的方式导出。每个 PV 卷都会获得自身的访问模式集合，描述的是 特定 PV 卷的能力。
+
+   访问模式有：
+
+   - ReadWriteOnce -- 卷可以被一个节点以读写方式挂载；
+   - ReadOnlyMany -- 卷可以被多个节点以只读方式挂载；
+   - ReadWriteMany -- 卷可以被多个节点以读写方式挂载。
+
+   在命令行接口（CLI）中，访问模式也使用以下缩写形式：
+
+   - RWO - ReadWriteOnce
+   - ROX - ReadOnlyMany
+   - RWX - ReadWriteMany
+
+   > **重要提醒！** 每个卷只能同一时刻只能以一种访问模式挂载，即使该卷能够支持 多种访问模式。例如，一个 GCEPersistentDisk 卷可以被某节点以 ReadWriteOnce 模式挂载，或者被多个节点以 ReadOnlyMany 模式挂载，但不可以同时以两种模式 挂载。
+
+   # ![pv-access-modes](https://51k8s.oss-cn-shenzhen.aliyuncs.com/oss-cn-shenzhenpv-access-modes.png)
+
 4. 存储类别 (Class)
 
 5. 回收策略 (Reclaim Policy)
