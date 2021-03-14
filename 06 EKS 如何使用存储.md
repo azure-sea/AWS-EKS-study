@@ -819,7 +819,19 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 
 4. 存储类别 (Class)
 
+   ​        PV可以设定其存储的类别，通过`storageClassName`参数指定一个`StorageClass`资源对象的名称。具有特定类别的PV只能与请求了该类别的PVC进行绑定。未设定类别的PV则只能与不请求任何类别的PVC进行绑定。
+
+   ​        早前，Kubernetes 使用注解 `volume.beta.kubernetes.io/storage-class` 而不是 `storageClassName` 属性。这一注解目前仍然起作用，不过在将来的 Kubernetes 发布版本中该注解会被彻底废弃
+
 5. 回收策略 (Reclaim Policy)
+
+   通过PV定义中的`persistentVolumeReclaimPolicy`字段进行设置回收策略, 目前的回收策略有:
+
+   - Retain -- 会保留数据，需要管理员手动回收。
+   - Recycle -- 擦除 例如使用(`rm -rf /thevolume/*`)。
+   - Delete -- 与PV相连的后端存储完成 `Volume` 的删除操作 诸如 AWS EBS、GCE PD、Azure Disk 或 OpenStack Cinder 卷这类关联存储资产还被删除。
+
+   目前，仅 NFS 和 HostPath 支持回收（Recycle）。 AWS EBS、GCE PD、Azure Disk 和 Cinder 卷都支持删除（Delete）。
 
 6. 挂载参数 (Mount Option)
 
