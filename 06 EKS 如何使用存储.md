@@ -371,7 +371,7 @@ kubectl delete pods \
   -l=app=ebs-csi-controller
 ```
 
-## 1.3 部署一个示例应用程序并验证 CSI 驱动程序是否正常运行
+### 1.2.6  部署一个示例应用程序并验证 CSI 驱动程序是否正常运行
 
 此过程使用https://github.com/kubernetes-sigs/aws-ebs-csi-driver/tree/master/examples/kubernetes/dynamic-provisioning来自容器存储接口 （CSI） 驱动程序[Amazon EBS存储库的](https://github.com/kubernetes-sigs/aws-ebs-csi-driver)动态卷预置GitHub示例来使用动态预置的Amazon EBS卷。
 
@@ -499,3 +499,273 @@ kubectl delete pods \
 ![storage_classes_volume](https://51k8s.oss-cn-shenzhen.aliyuncs.com/oss-cn-shenzhenstorage_classes_volume.png)
 
 ## 1.3 <span id='Amazon EFS CSI 驱动程序'>Amazon EFS CSI 驱动程序</span>
+
+[Amazon EFS 容器存储接口 （CSI） 驱动程序](https://github.com/kubernetes-sigs/aws-efs-csi-driver)提供了一个 CSI 接口，允许 上运行的 Kubernetes AWS 集群管理Amazon EFS文件系统的生命周期。
+
+### 1.3.1 将 Amazon EFS CSI 驱动程序部署到 Amazon EKS 集群
+
+**将 Amazon EFS CSI 驱动程序部署到 Amazon EKS 集群**
+
+- 使用与您的集群所在的 区域对应的命令部署 Amazon EFS CSI 驱动程序。如果您的集群包含节点（它还可以包含 AWS Fargate Pod），请使用以下命令部署驱动程序。
+
+  - 中国区域以外的所有区域。
+
+    ```
+    kubectl apply -k "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/ecr/?ref=release-1.0"
+    ```
+
+  - 北京和宁夏 中国区域。
+
+    ```
+    kubectl apply -k "github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.0"
+    ```
+
+  如果您的集群仅包含 Fargate Pod（无节点），请使用以下命令部署驱动程序。
+
+  ```
+  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-efs-csi-driver/master/deploy/kubernetes/base/csidriver.yaml
+  ```
+
+> **注意**
+>
+> - 从 1.0.0 版本开始，默认情况下启用使用 TLS 加密传输中的数据。使用传输[中](http://aws.amazon.com/blogs/aws/new-encryption-of-data-in-transit-for-amazon-efs/)加密，数据将在通过网络转换到 Amazon EFS 服务期间被加密。要使用 禁用它并挂载卷NFSv4，请在持久性卷清单`volumeAttributes`中`encryptInTransit`将 `"false"` 字段设置为 。有关示例清单，请参阅 上的传输中[加密示例](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/examples/kubernetes/encryption_in_transit/specs/pv.yaml)GitHub。
+> - 仅支持静态卷预置。这意味着，在集群中的 pod 使用 Amazon EFS 之前，需要在 外部创建 Amazon EKS 文件系统。
+
+**Amazon EFS 访问点**
+
+Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html)，这些访问点是 Amazon EFS 文件系统中特定于应用程序的入口点，便于在多个 Pod 之间共享文件系统。访问点可以为通过访问点发出的所有文件系统请求强制执行用户身份，并为每个 Pod 强制执行根目录。有关更多信息，请参阅 上的[Amazon EFS访问点](https://github.com/kubernetes-sigs/aws-efs-csi-driver/blob/master/examples/kubernetes/access_points/README.md)GitHub。
+
+### 1.3.2 为 Amazon EFS 集群创建 Amazon EKS 文件系统
+
+1. 找到您 Amazon EKS 集群的 VPC ID。您可以在 Amazon EKS 控制台中查找此 ID，或者使用以下 AWS CLI 命令。将 `<cluster_name>` 替换为您自己的值 （包括 `<>`）。
+
+1. ```
+   aws eks describe-cluster --name <cluster_name> --query "cluster.resourcesVpcConfig.vpcId" --output text
+   ```
+
+   输出：
+
+   ```
+   vpc-<exampledb76d3e813>
+   ```
+
+2. 查找您集群 VPC 的 CIDR 范围。您可以在 Amazon VPC 控制台中查找此信息，或者使用以下 AWS CLI 命令。
+
+   ```
+   aws ec2 describe-vpcs --vpc-ids vpc-<exampledb76d3e813> --query "Vpcs[].CidrBlock" --output text
+   ```
+
+   输出：
+
+   ```
+   192.168.0.0/16
+   ```
+
+3. 创建一个安全组，该安全组允许您 Amazon EFS 装载点的入站 NFS 流量。
+
+   1. 打开 Amazon VPC 控制台 https://console.aws.amazon.com/vpc/。
+   2. 在左侧导航面板中选择 **Security Groups** （安全组），然后选择 **Create security group （创建安全组**）。
+   3. 为您的安全组输入名称和描述，然后选择您的 Amazon EKS 集群使用的 VPC。
+   4. 在 **Inbound rules** （入站规则） 下，选择 **Add rule （添加规则**）。
+   5. 在 **Type** （类型） 下，选择 NFS。
+   6. 在 **Source** （源） 下，选择 Custom （**自定义**），然后粘贴您在上一步中获取的 VPC CIDR 范围。
+   7. 选择**创建安全组**.
+
+4. 为您的 Amazon EFS 集群创建 Amazon EKS 文件系统。
+
+   1. 通过 https://console.aws.amazon.com/efs/ 打开 Amazon Elastic File System 控制台。
+
+   2. 在左侧导航窗格中选择 **File** systems （文件系统），然后选择 **Create file system** （创建文件系统）。
+
+   3. 在 **Create file system** （创建文件系统） 页面上，选择 **Customize** （自定义）。
+
+   4. 在 **File system settings （文件系统设置**） 页面上，您无需输入或选择任何信息，但可以根据需要选择 **Next** （下一步）。
+
+   5. 在 **Network access （网络访问**） 页面上，对于 **Virtual Private Cloud （**VPC），选择您的 VPC。
+
+      **注意**
+
+      如果您在控制台的右上角没有看到您的 VPC，请确保已选中您的 VPC 所在的区域。
+
+   6. 在 **Mount** targets （挂载目标） 下，如果已列出默认安全组，请选择框右上角的 **X** 以从每个挂载点删除它，选择您在上一步中为每个挂载目标创建的安全组，然后选择 **Next** （下一步）。
+
+   7. 在 **File system policy （文件系统策略**） 页面上，选择 **Next** （下一步）。
+
+   8. 在 **Review and create （审核和创建**） 页面上，选择 **Create** （创建）。
+
+> **重要**
+>
+> 默认情况下，新 Amazon EFS 文件系统由 `root:root` 拥有，并且只有 `root` 用户 (UID 0) 具有读取、写入和执行权限。如果您的容器没有作为 `root` 运行，则必须更改 Amazon EFS 文件系统权限，以允许其他用户修改文件系统。有关更多信息，请参阅 中的在网络文件系统 （NFS） https://docs.aws.amazon.com/efs/latest/ug/accessing-fs-nfs-permissions.html *级别Amazon Elastic File System 用户指南*使用用户、组和权限。
+
+### 1.3.3 部署一个示例应用程序并验证 CSI 驱动程序是否正常运行
+
+此过程使用https://github.com/kubernetes-sigs/aws-efs-csi-driver/tree/master/examples/kubernetes/multiple_pods来自 容器存储接口 （CSI） 驱动程序[Amazon EFS存储库](https://github.com/kubernetes-sigs/aws-efs-csi-driver)的多个 Pod 读取写入示例GitHub来使用静态预配置的Amazon EFS持久性卷并从具有 `ReadWriteMany` 访问模式的多个 Pod 访问它。
+
+1. 将 [Amazon EFS Container Storage Interface （CSI） 驱动程序](https://github.com/kubernetes-sigs/aws-efs-csi-driver)GitHub存储库克隆到您的本地系统。
+
+   ```
+   git clone -b release-1.0 https://github.com/kubernetes-sigs/aws-efs-csi-driver.git
+   ```
+
+2. 导航到 `multiple_pods` 示例目录。
+
+   ```
+   cd aws-efs-csi-driver/examples/kubernetes/multiple_pods/
+   ```
+
+3. 检索 Amazon EFS 文件系统 ID。您可以在 Amazon EFS 控制台中查找此信息，或者使用以下 AWS CLI 命令。
+
+   ```
+   aws efs describe-file-systems --query "FileSystems[*].FileSystemId" --output text
+   ```
+
+   输出：
+
+   ```
+   fs-<582a03f3>
+   ```
+
+4. 编辑 `specs/pv.yaml` 文件并将 `volumeHandle` 值替换为您的 Amazon EFS 文件系统 ID。
+
+   ```
+   apiVersion: v1
+   kind: PersistentVolume
+   metadata:
+     name: efs-pv
+   spec:
+     capacity:
+       storage: 5Gi
+     volumeMode: Filesystem
+     accessModes:
+       - ReadWriteMany
+     persistentVolumeReclaimPolicy: Retain
+     storageClassName: efs-sc
+     csi:
+       driver: efs.csi.aws.com
+       volumeHandle: fs-<582a03f3>
+   ```
+
+   **注意**
+
+   由于 Amazon EFS 是弹性文件系统，它不会强制实施任何文件系统容量限制。在创建系统时，不使用持久性卷和持久性卷声明中的实际存储容量值。但是，由于存储容量是 Kubernetes 中的必需字段，您必须指定有效值，例如`5Gi`，在此示例中。此值不会限制 Amazon EFS 文件系统的大小。
+
+5. 从 目录部署`efs-sc`存储类`efs-claim`、持久性卷声明和`efs-pv`持久性卷`specs`。
+
+   ```
+   kubectl apply -f specs/pv.yaml
+   kubectl apply -f specs/claim.yaml
+   kubectl apply -f specs/storageclass.yaml
+   ```
+
+6. 列出默认命名空间中的持久性卷。查找具有 `default/efs-claim` 声明的持久性卷。
+
+   ```
+   kubectl get pv -w
+   ```
+
+   输出：
+
+   ```
+   NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM               STORAGECLASS   REASON   AGE
+   efs-pv   5Gi        RWX            Retain           Bound    default/efs-claim   efs-sc                  2m50s
+   ```
+
+   在 `STATUS` 变为 之前，请勿继续执行下一步`Bound`。
+
+7. 从 目录部署 `app1` 和`app2`示例应用程序`specs`。
+
+   ```
+   kubectl apply -f specs/pod1.yaml
+   kubectl apply -f specs/pod2.yaml
+   ```
+
+8. 查看默认命名空间中的 Pod，并等待 `app1` 和 `app2` Pod `STATUS` 变为 `Running`。
+
+   ```
+   kubectl get pods --watch
+   ```
+
+   **注意**
+
+   Pod 达到 `Running` 状态可能需要几分钟时间。
+
+9. 描述持久性卷。
+
+   ```
+   kubectl describe pv efs-pv
+   ```
+
+   输出：
+
+   ```
+   Name:            efs-pv
+   Labels:          none
+   Annotations:     kubectl.kubernetes.io/last-applied-configuration:
+                      {"apiVersion":"v1","kind":"PersistentVolume","metadata":{"annotations":{},"name":"efs-pv"},"spec":{"accessModes":["ReadWriteMany"],"capaci...
+                    pv.kubernetes.io/bound-by-controller: yes
+   Finalizers:      [kubernetes.io/pv-protection]
+   StorageClass:    efs-sc
+   Status:          Bound
+   Claim:           default/efs-claim
+   Reclaim Policy:  Retain
+   Access Modes:    RWX
+   VolumeMode:      Filesystem
+   Capacity:        5Gi
+   Node Affinity:   none
+   Message:
+   Source:
+       Type:              CSI (a Container Storage Interface (CSI) volume source)
+       Driver:            efs.csi.aws.com
+       VolumeHandle:      fs-582a03f3
+       ReadOnly:          false
+       VolumeAttributes:  none
+   Events:                none
+   ```
+
+   Amazon EFS 文件系统 ID 将作为 `VolumeHandle`. 列出。
+
+10. 验证 `app1` Pod 成功将数据写入卷。
+
+    ```
+    kubectl exec -ti app1 -- tail /data/out1.txt
+    ```
+
+    输出：
+
+    ```
+    Sun Mar 14 11:02:14 UTC 2021
+    Sun Mar 14 11:02:19 UTC 2021
+    Sun Mar 14 11:02:24 UTC 2021
+    Sun Mar 14 11:02:29 UTC 2021
+    Sun Mar 14 11:02:34 UTC 2021
+    Sun Mar 14 11:02:39 UTC 2021
+    ```
+
+11. 验证 `app2` pod 显示`app1`写入到卷的卷中的相同数据。
+
+    ```
+    kubectl exec -ti app2 -- tail /data/out1.txt
+    ```
+
+    输出：
+
+    ```
+    Sun Mar 14 11:02:14 UTC 2021
+    Sun Mar 14 11:02:19 UTC 2021
+    Sun Mar 14 11:02:24 UTC 2021
+    Sun Mar 14 11:02:29 UTC 2021
+    Sun Mar 14 11:02:34 UTC 2021
+    Sun Mar 14 11:02:39 UTC 2021
+    ```
+
+12. 完成试验时，请删除此示例应用程序来清除资源。
+
+    ```
+    kubectl delete -f specs/
+    ```
+
+    您还可以手动删除您创建的文件系统和安全组。 
+
+## 1.4 PV详解  
+
+上面介绍了怎么部署CSI 驱动程序并实现了一个演示案例, 接触了几个 专业词语 `pv` 、`pcv`  、`StorageClass`  下面就介绍一下这些名词的解释的小案例。
