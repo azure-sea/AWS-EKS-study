@@ -769,3 +769,15 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 ## 1.4 PV详解  
 
 上面介绍了怎么部署CSI 驱动程序并实现了一个演示案例, 接触了几个 专业词语 `pv` 、`pcv`  、`StorageClass`  下面就介绍一下这些名词的解释的小案例。
+
+`PV` 作为存储资源，主要包括存储能力、访问能力、存储类型、回收策略、后端存储类型等关键信息的设置。
+
+### 1.4.1 PV的关键配置参数
+
+1. 存储能力 (Capacity)
+2. 存储卷模式 (Volume Mode)
+3. 访问模式 (Access Modes)
+4. 存储类别 (Class)
+5. 回收策略 (Reclaim Policy)
+6. 挂载参数 (Mount Option)
+7. 节点亲和性 (Node Affinity)
