@@ -1095,3 +1095,19 @@ NAME            PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      A
 gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  145m
 ```
 
+**class**
+
+声明可以通过为 `storageClassName` 属性设置 [StorageClass](https://kubernetes.io/zh/docs/concepts/storage/storage-classes/) 的名称来请求特定的存储类。 只有所请求的类的 PV 卷，即 `storageClassName` 值与 PVC 设置相同的 PV 卷， 才能绑定到 PVC 申领。
+
+PVC 不必一定要请求某个类。如果 PVC 的 `storageClassName` 属性值设置为 `""`， 则被视为要请求的是没有设置存储类的 PV 卷，因此这一 PVC 只能绑定到未设置存储类的 PV 卷（未设置注解或者注解值为 `""` 的 PersistentVolume（PV）对象在系统中不会被删除，因为这样做可能会引起数据丢失。 未设置 `storageClassName` 的 PVC 与此大不相同，也会被集群作不同处理。 具体筛查方式取决于 [`DefaultStorageClass` 准入控制器插件](https://kubernetes.io/zh/docs/reference/access-authn-authz/admission-controllers/#defaultstorageclass) 是否被启用。
+
+- 如果准入控制器插件被启用，则管理员可以设置一个默认的 StorageClass。 所有未设置 `storageClassName` 的 PVC 都只能绑定到隶属于默认存储类的 PV 卷。 设置默认 StorageClass 的工作是通过将对应 StorageClass 对象的注解 `storageclass.kubernetes.io/is-default-class` 赋值为 `true` 来完成的。 如果管理员未设置默认存储类，集群对 PVC 创建的处理方式与未启用准入控制器插件 时相同。如果设定的默认存储类不止一个，准入控制插件会禁止所有创建 PVC 操作。
+- 如果准入控制器插件被关闭，则不存在默认 StorageClass 的说法。 所有未设置 `storageClassName` 的 PVC 都只能绑定到未设置存储类的 PV 卷。 在这种情况下，未设置 `storageClassName` 的 PVC 与 `storageClassName` 设置未 `""` 的 PVC 的处理方式相同。
+
+根据安装方法的不同，默认的 StorageClass 可能在集群安装期间由插件管理器（Addon Manager）部署到集群中。
+
+当某 PVC 除了请求 StorageClass 之外还设置了 `selector`，则这两种需求会按 逻辑与关系处理：只有隶属于所请求类且带有所请求标签的 PV 才能绑定到 PVC。
+
+> **说明：** 目前，设置了非空 `selector` 的 PVC 对象无法让集群为其动态供应 PV 卷。
+
+早前，Kubernetes 使用注解 `volume.beta.kubernetes.io/storage-class` 而不是 `storageClassName` 属性。这一注解目前仍然起作用，不过在将来的 Kubernetes 发布版本中该注解会被彻底废弃。
