@@ -181,7 +181,7 @@ gp2 (default)   kubernetes.io/aws-ebs   12m
 
 - 存在一个EKS集群
 
-- 集群中现有 IAM OpenID Connect （OIDC） 提供程序。要确定您是否已经有或要创建一个，请参阅[为集群创建 IAM OIDC 提供商](#IAM OIDC 提供商)
+- 集群中现有 IAM OpenID Connect （OIDC） 提供程序。要确定您是否已经有或要创建一个，请参阅为集群[创建 IAM OIDC 提供商](#IAM OIDC 提供商)
 
 - AWS CLI 版本 1.18.210 或更高版本安装在您的计算机
 
@@ -203,7 +203,7 @@ aws eks describe-cluster --name <cluster_name> --query "cluster.identity.oidc.is
 https://oidc.eks.ap-southeast-2a.amazonaws.com/id/EXAMPLED539D4633E53DE1B716D3041E
 ```
 
-列出您账户中的 IAM OIDC 提供商。Replace `<EXAMPLED539D4633E53DE1B716D3041E>` （包括 `<>`） 替换为从上一个命令返回的值。
+列出您账户中的 IAM OIDC 提供商。Replace `<EXAMPLED539D4633E53DE1B716D3041E>`  替换为从上一个命令返回的值。
 
 ```shell
 aws iam list-open-id-connect-providers | grep <EXAMPLED539D4633E53DE1B716D3041E>
@@ -835,4 +835,46 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 
 6. 挂载参数 (Mount Option)
 
+   ​        在将PV挂载到一个Node上时，根据后端存储的特点，可能需要设置额外的挂载参数，可以根据PV定义中的mountOptions字段进行设置。
+
+   ​        过去，使用注释`volume.beta.kubernetes.io/mount-options`代替`mountOptions`属性。此注释仍在起作用；但是，它将在以后的Kubernetes版本中完全弃用。
+
 7. 节点亲和性 (Node Affinity)
+
+   ​        PV可以设置[节点亲和性](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.20/#volumenodeaffinity-v1-core)来限制只能通过某些Node访问Volume，可以在PV定义中的nodeAffinity字段进行设置。使用这些Volume的Pod将被调度到满足条件的Node上
+
+   > **说明：** 对大多数类型的卷而言，你不需要设置节点亲和性字段。 [AWS EBS](https://kubernetes.io/zh/docs/concepts/storage/volumes/#awselasticblockstore)、 [GCE PD](https://kubernetes.io/zh/docs/concepts/storage/volumes/#gcepersistentdisk) 和 [Azure Disk](https://kubernetes.io/zh/docs/concepts/storage/volumes/#azuredisk) 卷类型都能自动设置相关字段。 你需要为 [local](https://kubernetes.io/zh/docs/concepts/storage/volumes/#local) 设置此属性。
+
+```
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv002
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: locat-storage
+  local:
+    path: /mnt/disks/ssd1
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+      - key: kubernetes.io/hostname
+        operator: In
+        values:
+        - my-node
+```
+
+### 1.4.2 PV的生命周期
+
+每个卷会处于以下阶段（Phase）之一：
+
+- Available（可用）-- 卷是一个空闲资源，尚未绑定到任何PVC；
+- Bound（已绑定）-- 该卷已经绑定到PVC；
+- Released（已释放）-- 所绑定的PVC已被删除，但是资源尚未被集群回收；
+- Failed（失败）-- 卷的自动回收操作失败。
+
