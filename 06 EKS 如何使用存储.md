@@ -1067,3 +1067,31 @@ type：可选项为pd-standard、pd-ssd，默认值为pd-standard。
 ​        如果`replication-type`设置为`regional-pd`， 则将设置[区域永久磁盘](https://cloud.google.com/compute/docs/disks/#repds) 。强烈建议进行 `volumeBindingMode: WaitForFirstConsumer`设置，在这种情况下，当您创建一个使用使用此StorageClass的PersistentVolumeClaim的Pod时，将为区域永久磁盘配备两个区域。一个区域与Pod计划在其中的区域相同。另一区域是从群集可用的区域中随机选择的。可以使用进一步限制磁盘区域`allowedTopologies`。
 
 ### 1.7.2 设置默认的StorageClass
+
+​        要在系统中设置一个默认的StorageClass，则首先需要启用名为DefaultStorageClass的admission controller，即在kube-apiserver的命令行参数--admission-control中增加：
+
+```
+--adminssion-control=...,DefaultStorageClass
+```
+
+然后,在StorageClass的定义中设置一个annotation：
+
+```
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: gp2
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+```
+
+通过kubectl create命令创建成功后，查看StorageClass列表，可以看到名为gold的StorageClass被标记为default：
+
+```
+NAME            PROVISIONER             RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+gp2 (default)   kubernetes.io/aws-ebs   Delete          WaitForFirstConsumer   false                  145m
+```
+
