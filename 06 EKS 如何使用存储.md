@@ -924,3 +924,146 @@ spec:
 ​        当Selector和Class都进行了设置时，系统将选择两个条件同时满足的PV与之匹配。另外，如果资源供应使用的是动态模式，即管理员没有预先定义PV，仅通过StorageClass交给系统自动完成PV的动态创建，那么PVC再设定Selector时，系统将无法为其供应任何存储资源。
 
 ​        在启用动态供应模式的情况下，一旦用户删除了PVC，与之绑定的PV也将根据其默认的回收策略“Delete”被删除。如果需要保留PV（用户数据），则在动态绑定成功后，用户需要将系统自动生成PV的回收策略从“Delete”改成“Retain”。
+
+## 1.6 PV和PVC 的生命周期
+
+我们可以将PV看作可用的存储资源，PVC则是对存储资源的需求，PV和PVC的相互关系遵循如下图所示的生命周期。
+
+![pv-pvc-lifi_cycle](https://51k8s.oss-cn-shenzhen.aliyuncs.com/oss-cn-shenzhenpv-pvc-lifi_cycle.jpg)
+
+### 1.6.1 资源供应
+
+Kubernetes支持两种资源的供应模式：静态模式（Static）和动态模式（Dynamic）。资源供应的结果就是创建好的PV。
+
+- 静态模式：集群管理员手工创建许多PV，在定义PV时需要将后端存储的特性进行设置。
+- 动态模式：集群管理员无须手工创建PV，而是通过StorageClass的设置对后端存储进行描述，标记为某种类型。此时要求PVC对存储的类型进行声明，系统将自动完成PV的创建及与PVC的绑定。PVC可以声明Class为""，说明该PVC禁止使用动态模式。
+
+### 1.6.2 资源绑定
+
+​        在用户定义好PVC之后，系统将根据PVC对存储资源的请求（存储空间和访问模式）在已存在的PV中选择一个满足PVC要求的PV，一旦找到，就将该PV与用户定义的PVC进行绑定，用户的应用就可以使用这个PVC了。如果在系统中没有满足PVC要求的PV，PVC则会无限期处于Pending状态，直到等到系统管理员创建了一个符合其要求的PV。PV一旦绑定到某个PVC上，就会被这个PVC独占，不能再与其他PVC进行绑定了。在这种情况下，当PVC申请的存储空间比PV的少时，整个PV的空间就都能够为PVC所用，可能会造成资源的浪费。如果资源供应使用的是动态模式，则系统在为PVC找到合适的StorageClass后，将自动创建一个PV并完成与PVC的绑定。
+
+### 1.6.3 资源使用
+
+​        Pod使用Volume的定义，将PVC挂载到容器内的某个路径进行使用。Volume的类型为persistentVolumeClaim，在后面的示例中再进行详细说明。在容器应用挂载了一个PVC后，就能被持续独占使用。不过，多个Pod可以挂载同一个PVC，应用程序需要考虑多个实例共同访问一块存储空间的问题。
+
+### 1.6.4 资源释放
+
+​        当用户对存储资源使用完毕后，用户可以删除PVC，与该PVC绑定的PV将会被标记为“已释放”，但还不能立刻与其他PVC进行绑定。通过之前PVC写入的数据可能还被留在存储设备上，只有在清除之后该PV才能再次使用。
+
+### 1.6.5 资源回收
+
+​        对于PV，管理员可以设定回收策略，用于设置与之绑定的PVC释放资源之后如何处理遗留数据的问题。只有PV的存储空间完成回收，才能供新的PVC绑定和使用。回收策略详见下节的说明。
+
+​        下面通过两张图分别对在静态资源供应模式和动态资源供应模式下，PV、PVC、StorageClass及Pod使用PVC的原理进行说明。
+
+​        下图描述了在静态资源供应模式下，通过PV和PVC完成绑定，并供Pod使用的存储管理机制。
+
+![static_res-pv-pvc](https://51k8s.oss-cn-shenzhen.aliyuncs.com/oss-cn-shenzhenstatic_res-pv-pvc.jpg)
+
+​        下图描述了在动态资源供应模式下，通过StorageClass和PVC完成资源动态绑定（系统自动生成PV），并供Pod使用的存储管理机制。
+
+![auto_res-pv-pvc](https://51k8s.oss-cn-shenzhen.aliyuncs.com/oss-cn-shenzhenauto_res-pv-pvc.jpg)
+
+## 1.7 StorageClass详解
+
+​        StorageClass作为对存储资源的抽象定义，对用户设置的PVC申请屏蔽后端存储的细节，一方面减少了用户对于存储资源细节的关注，另一方面减轻了管理员手工管理PV的工作，由系统自动完成PV的创建和绑定，实现了动态的资源供应。基于StorageClass的动态资源供应模式将逐步成为云平台的标准存储配置模式。
+
+​        StorageClass的定义主要包括名称、后端存储的提供者（provisioner）和后端存储的相关参数配置。StorageClass一旦被创建出来，则将无法修改。如需更改，则只能删除原StorageClass的定义重建。下例定义了一个名为standard的StorageClass，提供者为aws-ebs，其参数设置了一个type，值为gp2：
+
+```json
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: standard
+#  annotations:
+#    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+```
+
+### 1.7.1  StorageClass的关键配置参数
+
+1. 提供者（Provisioner）
+
+   ​        描述存储资源的提供者，也可以看作后端存储驱动。目前Kubernetes支持的Provisioner都以“ kubernetes.io/”为开头，用户也可以使用自定义的后端存储提供者。为了符合StorageClass的用法，自定义Provisioner需要符合存储卷的开发规范，详见https://kubernetes.io/docs/concepts/storage/persistent-volumes的说明。
+
+2. 参数（Parameters）
+
+   ​       后端存储资源提供者的参数设置，不同的Provisioner包括不同的参数设置。某些参数可以不显示设定，Provisioner将使用其默认值。接下来通过几种常见的Provisioner对StorageClass的定义进行详细说明。
+
+**1）AWS EBS存储卷**
+
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: slow
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+  zone: ap-southeast-2a
+  iopsPerGB: "10"
+```
+
+参数说明如下（详细说明请参考[AWS EBS文档](https://kubernetes.io/docs/concepts/storage/storage-classes/#aws-ebs)）。
+
+- `type`：可选项为io1，gp2，sc1，st1，默认值为gp2。后面还增加了 gp3
+- `zone`(弃用)：AWS zone的名称。如果没有指定 `zone` 和 `zones`， 通常卷会在 Kubernetes 集群节点所在的活动区域中轮询调度分配。 `zone` 和 `zones` 参数不能同时使用。
+- `zones`(弃用):  以逗号分隔的 AWS 区域列表。 如果没有指定 `zone` 和 `zones`，通常卷会在 Kubernetes 集群节点所在的 活动区域中轮询调度分配。`zone`和`zones`参数不能同时使用。
+- `iopsPerGB`：仅用于io1类型的Volume，意为每秒每GiB的I/O操作数量。 AWS 卷插件将其与请求卷的大小相乘以计算 IOPS 的容量， 并将其限制在 20000 IOPS（AWS 支持的最高值，请参阅 [AWS 文档](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)。 这里需要输入一个字符串，即 `"10"`，而不是 `10`。
+- `fsType`：受 Kubernetes 支持的文件类型。默认值：`"ext4"`。
+- `encrypted`：是否加密。值为 `"true"` 或者 `"false"`。
+- `kmsKeyId`：加密时的Amazon Resource Name。如果没有提供，但 `encrypted` 值为 true，AWS 将生成一个密钥。关于有效的 ARN 值，请参阅 AWS 文档。
+
+> **注意：** `zone`和`zones`参数已弃用，并替换为 [allowedTopologies](https://kubernetes.io/docs/concepts/storage/storage-classes/#allowed-topologies)
+
+**Allowed Topologies**
+
+当集群操作员指定`WaitForFirstConsumer`卷绑定模式时，在大多数情况下，不再需要将配置限制为特定的拓扑。但是，如果仍然需要，`allowedTopologies`可以指定。
+
+如下:
+
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+volumeBindingMode: WaitForFirstConsumer
+allowedTopologies:
+- matchLabelExpressions:
+  - key: failure-domain.beta.kubernetes.io/zone
+    values:
+    - ap-southeast-2a
+    - ap-southeast-2b
+```
+
+**2）GCE PD存储卷**
+
+```
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: slow
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+  fstype: ext4
+  replication-type: none
+```
+
+type：可选项为pd-standard、pd-ssd，默认值为pd-standard。
+
+- zone(弃用)：GCE zone名称 
+- zones(弃用)：GCE zone名称 逗号分隔列表，如果既未指定`zone`也未指定`zones`，则通常会在Kubernetes集群具有节点的所有活动区域中进行卷循环。`zone`和`zones`参数不能同时使用。
+- `fstype`：`ext4`或`xfs`。默认值：`ext4`。主机操作系统必须支持定义的文件系统类型。
+- `replication-type`：`none`或`regional-pd`。默认值：`none`。
+
+如果`replication-type`设置为`none`，则将设置常规（区域）PD。
+
+​        如果`replication-type`设置为`regional-pd`， 则将设置[区域永久磁盘](https://cloud.google.com/compute/docs/disks/#repds) 。强烈建议进行 `volumeBindingMode: WaitForFirstConsumer`设置，在这种情况下，当您创建一个使用使用此StorageClass的PersistentVolumeClaim的Pod时，将为区域永久磁盘配备两个区域。一个区域与Pod计划在其中的区域相同。另一区域是从群集可用的区域中随机选择的。可以使用进一步限制磁盘区域`allowedTopologies`。
+
+### 1.7.2 设置默认的StorageClass
