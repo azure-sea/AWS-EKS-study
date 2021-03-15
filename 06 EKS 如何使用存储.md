@@ -766,7 +766,7 @@ Amazon EFS CSI 驱动程序支持[Amazon EFS访问点](https://docs.aws.amazon.c
 
     您还可以手动删除您创建的文件系统和安全组。 
 
-## 1.4 PV详解  
+## 1.4 PV(PersistentVolume)详解  
 
 上面介绍了怎么部署CSI 驱动程序并实现了一个演示案例, 接触了几个 专业词语 `pv` 、`pcv`  、`StorageClass`  下面就介绍一下这些名词的解释的小案例。
 
@@ -878,3 +878,49 @@ spec:
 - Released（已释放）-- 所绑定的PVC已被删除，但是资源尚未被集群回收；
 - Failed（失败）-- 卷的自动回收操作失败。
 
+## 1.5 PVC (PersistentVolumeClaims) 详解
+
+​        PVC作为用户对存储资源的需求申请，主要包括存储空间请求、访问模式、PV选择条件和存储类别等信息的设置。
+
+​        下例声明的 PVC (pvc001) 具有如下属性：申请8GiB存储空间，访问模式为ReadWriteOnce，PV选择条件为包含标签“ release=stable”并且包含条件为“environment In [dev]”的标签，存储类别为“slow”（要求在系统中已存在名为slow的StorageClass）：
+
+```
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc001
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: slow
+  selector:
+    matchLabels:
+      release: "stable"
+    matchExpressions:
+      - {key: environment, operator: In, values: [dev]}
+```
+
+- 资源请求（Resources）：描述对存储资源的请求，目前仅支持request.storage的设置，即存储空间大小。
+- 访问模式（Access Modes）：PVC也可以设置访问模式，用于描述用户应用对存储资源的访问权限。其三种访问模式的设置与PV的设置相同。
+- 存储卷模式（Volume Modes）：PVC也可以设置存储卷模式，用于描述希望使用的PV存储卷模式，包括文件系统和块设备。
+- PV选择条件（Selector）：通过对Label Selector的设置，可使PVC对于系统中已存在的各种PV进行筛选。系统将根据标签选出合适的PV与该PVC进行绑定。选择条件可以使用matchLabels和matchExpressions进行设置，如果两个字段都设置了，则Selector的逻辑将是两组条件同时满足才能完成匹配。
+- 存储类别（Class）： PVC在定义时可以设定需要的后端存储的类别（通过storageClassName字段指定），以减少对后端存储特性的详细信息的依赖。只有设置了该Class的PV才能被系统选出，并与该PVC进行绑定。
+
+
+
+​        PVC也可以不设置Class需求。如果storageClassName字段的值被设置为空（storageClassName=""），则表示该PVC不要求特定的Class，系统将只选择未设定Class的PV与之匹配和绑定。PVC也可以完全不设置storageClassName字段，此时将根据系统是否启用了名为DefaultStorageClass的admissioncontroller进行相应的操作。
+
+- 未启用DefaultStorageClass ：等效于PVC设置storageClassName的值为空（storageClassName=""），即只能选择未设定Class的PV与之匹配和绑定。
+
+- 启用DefaultStorageClass：要求集群管理员已定义默认的StorageClass。如果在系统中不存在默认的StorageClass，则等效于不启用DefaultStorageClass的情况。如果存在默认的StorageClass，则系统将自动为PVC创建一个PV（使用默认StorageClass的后端存储），并将它们进行绑定。集群管理员设置默认StorageClass的方法为，在StorageClass的定义中加上一个annotation“storageclass.kubernetes.io/is-default-class= true”。如果管理员将多个StorageClass都定义为default，则由于不唯一，系统将无法为PVC创建相应的PV。
+
+
+> 注意，PVC和PV都受限于Namespace，PVC在选择PV时受到Namespace的限制，只有相同Namespace中的PV才可能与PVC绑定。Pod在引用PVC时同样受Namespace的限制，只有相同Namespace中的PVC才能挂载到Pod内。
+
+​        当Selector和Class都进行了设置时，系统将选择两个条件同时满足的PV与之匹配。另外，如果资源供应使用的是动态模式，即管理员没有预先定义PV，仅通过StorageClass交给系统自动完成PV的动态创建，那么PVC再设定Selector时，系统将无法为其供应任何存储资源。
+
+​        在启用动态供应模式的情况下，一旦用户删除了PVC，与之绑定的PV也将根据其默认的回收策略“Delete”被删除。如果需要保留PV（用户数据），则在动态绑定成功后，用户需要将系统自动生成PV的回收策略从“Delete”改成“Retain”。
