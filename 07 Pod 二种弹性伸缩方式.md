@@ -262,3 +262,8 @@ vpa-updater-786b96955c-bgp9d                1/1     Running   0          8s
 
 
 
+## 1.2 Horizontal Pod Autoscaler 介绍
+
+​        Kubernetes [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) 根据资源的 CPU 利用率自动扩展部署、复制控制器或副本集中的 Pod 数量。这可帮助您的应用程序进行扩展以满足增长的需求，或在不需要资源时进行缩减，从而为其他应用程序释放节点。当您设置目标 CPU 利用率百分比时，Horizontal Pod Autoscaler 扩展或缩减应用程序来尝试满足该目标。
+
+​        Horizontal Pod Autoscaler 是 Kubernetes 中的标准 API 资源，只需在 Amazon EKS 集群上安装一个指标源（如 Kubernetes Metrics Server）即可正常运行。您不需要在集群上部署或安装 Horizontal Pod Autoscaler 以开始扩展您的应用程序。有关更多信息，请参阅 Kubernetes 文档中的 [Horizontal Pod](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) Autoscaler。
