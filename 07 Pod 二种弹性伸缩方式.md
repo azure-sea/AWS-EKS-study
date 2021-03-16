@@ -349,9 +349,9 @@ vpa-updater-786b96955c-bgp9d                1/1     Running   0          8s
 
    只要实际 CPU 百分比高于目标百分比，副本计数就会增加（最大值为 10）。在此情况下，此百分比为 `250%`，因此 `REPLICAS` 数会继续增加。
 
-   **注意**
-
-   可能需要在几分钟后，您才能看到副本计数达到其最大值。例如，如果只需 6 个副本即可让 CPU 负载小于或等于 50％，则负载将不会超过 6 个副本。
+   > **注意**
+   >
+   > 可能需要在几分钟后，您才能看到副本计数达到其最大值。例如，如果只需 6 个副本即可让 CPU 负载小于或等于 50％，则负载将不会超过 6 个副本。
 
 6. 停止负载。在正在生成负载（从步骤 4）的终端窗口中，通过按住 `Ctrl+C` 键来停止负载。通过再次运行以下命令，您会看到副本数缩减回 1。
 
@@ -366,9 +366,9 @@ vpa-updater-786b96955c-bgp9d                1/1     Running   0          8s
    php-apache   Deployment/php-apache   0%/50%    1         10        1          25m
    ```
 
-   **注意**
-
-   缩减的默认时间范围是 5 分钟，因此，在您再次看到副本计数达到 1 之前，即使当前 CPU 百分比为 0%，也可能需要一些时间。时间范围是可修改的。有关更多信息，请参阅 Kubernetes 文档中的 [Horizontal Pod](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) Autoscaler。
+   > **注意**
+   >
+   > 缩减的默认时间范围是 5 分钟，因此，在您再次看到副本计数达到 1 之前，即使当前 CPU 百分比为 0%，也可能需要一些时间。时间范围是可修改的。有关更多信息，请参阅 Kubernetes 文档中的 [Horizontal Pod](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) Autoscaler。
 
 7. 完成示例应用程序的试验之后，删除 `php-apache` 资源。
 
