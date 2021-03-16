@@ -267,3 +267,111 @@ vpa-updater-786b96955c-bgp9d                1/1     Running   0          8s
 ​        Kubernetes [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) 根据资源的 CPU 利用率自动扩展部署、复制控制器或副本集中的 Pod 数量。这可帮助您的应用程序进行扩展以满足增长的需求，或在不需要资源时进行缩减，从而为其他应用程序释放节点。当您设置目标 CPU 利用率百分比时，Horizontal Pod Autoscaler 扩展或缩减应用程序来尝试满足该目标。
 
 ​        Horizontal Pod Autoscaler 是 Kubernetes 中的标准 API 资源，只需在 Amazon EKS 集群上安装一个指标源（如 Kubernetes Metrics Server）即可正常运行。您不需要在集群上部署或安装 Horizontal Pod Autoscaler 以开始扩展您的应用程序。有关更多信息，请参阅 Kubernetes 文档中的 [Horizontal Pod](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) Autoscaler。
+
+### 1.2.1 测试 Horizontal Pod Autoscaler 安装
+
+1. 使用以下命令部署一个简单的 Apache Web 服务器应用程序。
+
+   ```
+   kubectl apply -f https://k8s.io/examples/application/php-apache.yaml
+   ```
+
+   向此 Apache Web 服务器 Pod 提供 500 millicpu 的 CPU 限制，并在端口 80 上提供服务。
+
+2. 为 `php-apache` 部署创建 Horizontal Pod Autoscaler 资源。
+
+   ```
+   kubectl autoscale deployment php-apache --cpu-percent=50 --min=1 --max=10
+   ```
+
+   此命令创建为部署定位 50% CPU 利用率的 Autoscaler，最少一个 Pod，最多十个 Pod。当平均 CPU 负载低于 50 时，Autoscaler 尝试减少部署中的 Pod 数量，最低一个。当负载大于 50% 时，Autoscaler 尝试增加部署中的 Pod 数量，最高十个。有关更多信息，请参阅 Kubernetes 文档中的 Horizontal Pod Autoscaler [的工作原理。](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#how-does-the-horizontal-pod-autoscaler-work)
+
+3. 使用以下命令描述 Autoscaler 以查看其详细信息。
+
+   ```
+   kubectl describe hpa
+   ```
+
+   输出：
+
+   ```
+   Name:                                                  php-apache
+   Namespace:                                             default
+   Labels:                                                <none>
+   Annotations:                                           <none>
+   CreationTimestamp:                                     Thu, 11 Jun 2020 16:05:41 -0500
+   Reference:                                             Deployment/php-apache
+   Metrics:                                               ( current / target )
+     resource cpu on pods  (as a percentage of request):  <unknown> / 50%
+   Min replicas:                                          1
+   Max replicas:                                          10
+   Deployment pods:                                       1 current / 0 desired
+   Conditions:
+     Type           Status  Reason                   Message
+     ----           ------  ------                   -------
+     AbleToScale    True    SucceededGetScale        the HPA controller was able to get the target's current scale
+     ScalingActive  False   FailedGetResourceMetric  the HPA was unable to compute the replica count: did not receive metrics for any ready pods
+   Events:
+     Type     Reason                        Age                From                       Message
+     ----     ------                        ----               ----                       -------
+     Warning  FailedGetResourceMetric       42s (x2 over 57s)  horizontal-pod-autoscaler  unable to get metrics for resource cpu: no metrics returned from resource metrics API
+     Warning  FailedComputeMetricsReplicas  42s (x2 over 57s)  horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+     Warning  FailedGetResourceMetric       12s (x2 over 27s)  horizontal-pod-autoscaler  did not receive metrics for any ready pods
+     Warning  FailedComputeMetricsReplicas  12s (x2 over 27s)  horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu utilization: did not receive metrics for any ready pods
+   ```
+
+   如您所见，当前 CPU 负载是 `<unknown>`，因为服务器上尚没有负载。pod 计数已处于其最低边界 (1)，因此无法缩减。
+
+4. 通过运行容器为 Web 服务器创建负载。
+
+   ```
+   kubectl run -it --rm load-generator --image=busybox /bin/sh --generator=run-pod/v1
+   ```
+
+   如果您在几秒钟后未收到命令提示符，则可能需要按 `Enter`。 在命令提示符处，输入以下命令以生成负载并促使 Autoscaler 扩展部署。
+
+   ```
+   while true; do wget -q -O- http://php-apache; done
+   ```
+
+5. 要监视部署的向外扩展情况，请在与执行上一步骤的终端不同的终端上定期运行以下命令。
+
+   ```
+   kubectl get hpa
+   ```
+
+   输出：
+
+   ```
+   NAME         REFERENCE               TARGETS    MINPODS   MAXPODS   REPLICAS   AGE
+   php-apache   Deployment/php-apache   250%/50%   1         10        5          4m44s
+   ```
+
+   只要实际 CPU 百分比高于目标百分比，副本计数就会增加（最大值为 10）。在此情况下，此百分比为 `250%`，因此 `REPLICAS` 数会继续增加。
+
+   **注意**
+
+   可能需要在几分钟后，您才能看到副本计数达到其最大值。例如，如果只需 6 个副本即可让 CPU 负载小于或等于 50％，则负载将不会超过 6 个副本。
+
+6. 停止负载。在正在生成负载（从步骤 4）的终端窗口中，通过按住 `Ctrl+C` 键来停止负载。通过再次运行以下命令，您会看到副本数缩减回 1。
+
+   ```
+   kubectl get hpa
+   ```
+
+   输出
+
+   ```
+   NAME         REFERENCE               TARGETS   MINPODS   MAXPODS   REPLICAS   AGE
+   php-apache   Deployment/php-apache   0%/50%    1         10        1          25m
+   ```
+
+   **注意**
+
+   缩减的默认时间范围是 5 分钟，因此，在您再次看到副本计数达到 1 之前，即使当前 CPU 百分比为 0%，也可能需要一些时间。时间范围是可修改的。有关更多信息，请参阅 Kubernetes 文档中的 [Horizontal Pod](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) Autoscaler。
+
+7. 完成示例应用程序的试验之后，删除 `php-apache` 资源。
+
+   ```
+   kubectl delete deployment.apps/php-apache service/php-apache horizontalpodautoscaler.autoscaling/php-apache
+   ```
