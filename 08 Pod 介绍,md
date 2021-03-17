@@ -8,7 +8,7 @@
 
 # 2. Pod 定义和使用
 
-```
+```json
 apiVersion: v1 # 必选，API的版本号
 kind: Pod       # 必选，类型Pod
 metadata:       # 必选，元数据
@@ -142,7 +142,7 @@ kubelet 使用启动探测器可以知道应用程序容器什么时候启动了
 
 **ExecAction** 
 
-```
+```json
 apiVersion: v1
 kind: Pod
 metadata:
@@ -166,3 +166,108 @@ spec:
       periodSeconds: 5
 ```
 
+​        在这个配置文件中，可以看到 Pod 中只有一个容器。 `periodSeconds` 字段指定了 kubelet 应该每 5 秒执行一次存活探测。 `initialDelaySeconds` 字段告诉 kubelet 在执行第一次探测前应该等待 5 秒。 kubelet 在容器内执行命令 `cat /tmp/healthy` 来进行探测。 如果命令执行成功并且返回值为 0，kubelet 就会认为这个容器是健康存活的。 如果这个命令返回非 0 值，kubelet 会杀死这个容器并重新启动它。
+
+**TCPSocketAction**
+
+```json
+apiVersion: v1
+kind: Pod
+metadata:
+  name: goproxy
+  labels:
+    app: goproxy
+spec:
+  containers:
+  - name: goproxy
+    image: k8s.gcr.io/goproxy:0.1
+    ports:
+    - containerPort: 8080
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+      initialDelaySeconds: 15
+      periodSeconds: 20
+```
+
+​        这个例子同时使用就绪和存活探测器。kubelet 会在容器启动 5 秒后发送第一个就绪探测。 这会尝试连接 `goproxy` 容器的 8080 端口。 如果探测成功，这个 Pod 会被标记为就绪状态，kubelet 将继续每隔 10 秒运行一次检测。
+
+​        除了就绪探测，这个配置包括了一个存活探测。 kubelet 会在容器启动 15 秒后进行第一次存活探测。 就像就绪探测一样，会尝试连接 `goproxy` 容器的 8080 端口。 如果存活探测失败，这个容器会被重新启动。
+
+**HTTPGetAction**
+
+```json
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness
+  name: liveness-http
+spec:
+  containers:
+  - name: liveness
+    image: k8s.gcr.io/liveness
+    args:
+    - /server
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+        httpHeaders:
+        - name: Custom-Header
+          value: Awesome
+      initialDelaySeconds: 3
+      periodSeconds: 3
+```
+
+​        在这个配置文件中，可以看到 Pod 也只有一个容器。 `periodSeconds` 字段指定了 kubelet 每隔 3 秒执行一次存活探测。 `initialDelaySeconds` 字段告诉 kubelet 在执行第一次探测前应该等待 3 秒。 kubelet 会向容器内运行的服务（服务会监听 8080 端口）发送一个 HTTP GET 请求来执行探测。 如果服务器上 `/healthz` 路径下的处理程序返回成功代码，则 kubelet 认为容器是健康存活的。 如果处理程序返回失败代码，则 kubelet 会杀死这个容器并且重新启动它。
+
+任何大于或等于 200 并且小于 400 的返回代码标示成功，其它返回代码都标示失败。
+
+可以在这里看服务的源码 [server.go](https://github.com/kubernetes/kubernetes/blob/master/test/images/agnhost/liveness/server.go)。
+
+容器存活的最开始 10 秒中，`/healthz` 处理程序返回一个 200 的状态码。之后处理程序返回 500 的状态码。
+
+```go
+http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+    duration := time.Now().Sub(started)
+    if duration.Seconds() > 10 {
+        w.WriteHeader(500)
+        w.Write([]byte(fmt.Sprintf("error: %v", duration.Seconds())))
+    } else {
+        w.WriteHeader(200)
+        w.Write([]byte("ok"))
+    }
+})
+```
+
+​        kubelet 在容器启动之后 3 秒开始执行健康检测。所以前几次健康检查都是成功的。 但是 10 秒之后，健康检查会失败，并且 kubelet 会杀死容器再重新启动容器。
+
+创建一个 Pod 来测试 HTTP 的存活检测：
+
+```shell
+kubectl apply -f https://k8s.io/examples/pods/probe/http-liveness.yaml
+```
+
+10 秒之后，通过看 Pod 事件来检测存活探测器已经失败了并且容器被重新启动了。
+
+```shell
+kubectl describe pod liveness-http
+```
+
+# 5.  探针检查参数配置
+
+initialDelaySeconds: 60    # 初始化时间 等待多少秒后存活和就绪探测器才被初始化，默认是 0 秒，最小值是 0。
+
+timeoutSeconds: 2   # 超时时间（单位是秒）。默认是 1 秒。最小值是 1。
+
+periodSeconds: 5   # 检测间隔（单位是秒）。默认是 10 秒。最小值是 1。
+
+successThreshold: 1 # 检查成功为1次表示就绪  默认值是，最小值是 1。
+
+failureThreshold: 2 # 检测失败2次表示未就绪，存活探测情况下的失败就意味着重新启动容器。 就绪探测情况下的失败的 Pod 会被打上未就绪的标签。默认值是 3。最小值是 1。
